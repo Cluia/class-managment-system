@@ -76,14 +76,14 @@ class LLMService:
 
         try:
             prompt = self._build_recommendations_prompt(payload)
-            raw_text, tokens = self._call_groq(
-                RECOMMENDATIONS_SYSTEM_PROMPT, prompt
-            )
+            raw_text, tokens = self._call_groq(RECOMMENDATIONS_SYSTEM_PROMPT, prompt)
             parsed = self._parse_recommendations_json(raw_text)
             return parsed, tokens, False
         except (httpx.HTTPError, AIResponseError) as exc:
             if Config.ai_fallback_to_mock():
-                logger.warning("Falha na API Groq (%s). Usando mock.", type(exc).__name__)
+                logger.warning(
+                    "Falha na API Groq (%s). Usando mock.", type(exc).__name__
+                )
                 return self._mock_recommendations(payload), 0, True
             raise
 
@@ -104,13 +104,13 @@ class LLMService:
             return self._parse_llm_json(raw_text)
         except (httpx.HTTPError, AIResponseError) as exc:
             if Config.ai_fallback_to_mock():
-                logger.warning("Falha na API Groq (%s). Plano mock.", type(exc).__name__)
+                logger.warning(
+                    "Falha na API Groq (%s). Plano mock.", type(exc).__name__
+                )
                 return self._mock_plan(payload)
             raise
 
-    def _call_groq(
-        self, system_instruction: str, user_prompt: str
-    ) -> tuple[str, int]:
+    def _call_groq(self, system_instruction: str, user_prompt: str) -> tuple[str, int]:
         url = f"{self.api_base}{GROQ_CHAT_PATH}"
         try:
             response = httpx.post(
@@ -160,7 +160,7 @@ class LLMService:
 
     def _build_recommendations_prompt(self, payload: dict[str, Any]) -> str:
         return (
-            f'Com base no plano de aula abaixo, sugira conteúdos complementares, '
+            f"Com base no plano de aula abaixo, sugira conteúdos complementares, "
             f"tópicos relacionados e tags pedagógicas.\n\n"
             f'Título: {payload["title"]}\n'
             f'Disciplina: {payload["subject"]}\n'
@@ -244,9 +244,7 @@ class LLMService:
             raise AIResponseError("A IA retornou um JSON inválido.") from exc
 
     def _mock_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
-        scheduled = payload.get("scheduled_date") or (
-            date.today() + timedelta(days=7)
-        )
+        scheduled = payload.get("scheduled_date") or (date.today() + timedelta(days=7))
         return {
             "title": payload["topic"],
             "objective": payload.get("objective")
@@ -301,9 +299,7 @@ class ClassPlanService:
     def _merge_generation(
         self, input_data: dict[str, Any], generated: dict[str, Any]
     ) -> dict[str, Any]:
-        scheduled = input_data.get("scheduled_date") or generated.get(
-            "scheduled_date"
-        )
+        scheduled = input_data.get("scheduled_date") or generated.get("scheduled_date")
         if isinstance(scheduled, str):
             scheduled = date.fromisoformat(scheduled)
 
@@ -313,7 +309,9 @@ class ClassPlanService:
             or generated.get("support_resources")
             or ["Material de apoio"]
         )
-        tags = input_data.get("tags") or generated.get("tags") or [input_data["subject"]]
+        tags = (
+            input_data.get("tags") or generated.get("tags") or [input_data["subject"]]
+        )
 
         return {
             "title": (generated.get("title") or input_data["topic"]).strip(),
@@ -336,19 +334,13 @@ class ClassPlanService:
         query = ClassPlan.query
 
         if params.get("subject"):
-            query = query.filter(
-                ClassPlan.subject.ilike(f"%{params['subject']}%")
-            )
+            query = query.filter(ClassPlan.subject.ilike(f"%{params['subject']}%"))
 
         if params.get("scheduled_date"):
-            query = query.filter(
-                ClassPlan.scheduled_date == params["scheduled_date"]
-            )
+            query = query.filter(ClassPlan.scheduled_date == params["scheduled_date"])
 
         if params.get("search"):
-            query = query.filter(
-                ClassPlan.title.ilike(f"%{params['search']}%")
-            )
+            query = query.filter(ClassPlan.title.ilike(f"%{params['search']}%"))
 
         if params.get("tags"):
             tag_conditions = [

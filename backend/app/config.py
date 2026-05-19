@@ -27,9 +27,9 @@ class Config:
 
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
     GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
-    GROQ_API_BASE = os.getenv(
-        "GROQ_API_BASE", "https://api.groq.com/openai/v1"
-    ).rstrip("/")
+    GROQ_API_BASE = os.getenv("GROQ_API_BASE", "https://api.groq.com/openai/v1").rstrip(
+        "/"
+    )
 
     @classmethod
     def ai_fallback_to_mock(cls) -> bool:

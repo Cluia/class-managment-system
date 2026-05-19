@@ -41,7 +41,9 @@ class ClassPlan(db.Model):
     scheduled_date = db.Column(db.Date, nullable=False)  # Data Prevista
     subject = db.Column(db.String(120), nullable=False)  # Disciplina
     contents = db.Column(db.JSON, nullable=False, default=list)  # Conteúdos
-    support_resources = db.Column(db.JSON, nullable=False, default=list)  # Recursos de Apoio
+    support_resources = db.Column(
+        db.JSON, nullable=False, default=list
+    )  # Recursos de Apoio
     tags = db.Column(db.JSON, nullable=False, default=list)  # Tags
     created_at = db.Column(
         db.DateTime,

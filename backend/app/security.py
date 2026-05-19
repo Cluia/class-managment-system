@@ -55,9 +55,12 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(429)
     def rate_limit_exceeded(_exc):
-        return jsonify(
-            {"error": "Muitas requisições. Aguarde um momento e tente novamente."}
-        ), 429
+        return (
+            jsonify(
+                {"error": "Muitas requisições. Aguarde um momento e tente novamente."}
+            ),
+            429,
+        )
 
     @app.errorhandler(500)
     def internal_server_error(exc):

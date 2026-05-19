@@ -125,13 +125,21 @@ def plan_recommendations():
         payload["error"] = "A IA retornou um formato inválido."
         return jsonify(payload), 502
     except httpx.TimeoutException:
-        return jsonify(
-            {"error": "Tempo esgotado ao aguardar resposta da IA. Tente novamente."}
-        ), 504
+        return (
+            jsonify(
+                {"error": "Tempo esgotado ao aguardar resposta da IA. Tente novamente."}
+            ),
+            504,
+        )
     except httpx.HTTPError:
-        return jsonify(
-            {"error": "Não foi possível comunicar com o serviço de IA. Tente novamente."}
-        ), 502
+        return (
+            jsonify(
+                {
+                    "error": "Não foi possível comunicar com o serviço de IA. Tente novamente."
+                }
+            ),
+            502,
+        )
 
     return jsonify(result)
 
@@ -157,13 +165,21 @@ def generate_plan():
         payload["error"] = "A IA retornou um formato inválido."
         return jsonify(payload), 502
     except httpx.TimeoutException:
-        return jsonify(
-            {"error": "Tempo esgotado ao aguardar resposta da IA. Tente novamente."}
-        ), 504
+        return (
+            jsonify(
+                {"error": "Tempo esgotado ao aguardar resposta da IA. Tente novamente."}
+            ),
+            504,
+        )
     except httpx.HTTPError:
-        return jsonify(
-            {"error": "Não foi possível comunicar com o serviço de IA. Tente novamente."}
-        ), 502
+        return (
+            jsonify(
+                {
+                    "error": "Não foi possível comunicar com o serviço de IA. Tente novamente."
+                }
+            ),
+            502,
+        )
 
     return jsonify(plan.to_dict()), 201
 
