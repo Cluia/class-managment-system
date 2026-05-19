@@ -4,7 +4,10 @@
 def test_health(client):
     response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.get_json() == {"status": "healthy"}
+    assert response.get_json() == {
+        "status": "healthy",
+        "database": "connected",
+    }
 
 
 def test_health_has_security_headers(client):

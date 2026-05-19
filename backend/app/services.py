@@ -112,25 +112,41 @@ class LLMService:
         self, system_instruction: str, user_prompt: str
     ) -> tuple[str, int]:
         url = f"{self.api_base}{GROQ_CHAT_PATH}"
-        response = httpx.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0.7,
-                "response_format": {"type": "json_object"},
-            },
-            timeout=60.0,
-        )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            response = httpx.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "temperature": 0.7,
+                    "response_format": {"type": "json_object"},
+                },
+                timeout=httpx.Timeout(60.0, connect=10.0),
+            )
+            response.raise_for_status()
+        except httpx.TimeoutException:
+            logger.warning("Timeout ao conectar na Groq (%s)", url)
+            raise
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "Groq retornou HTTP %s para o modelo %s",
+                exc.response.status_code,
+                self.model,
+            )
+            raise
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError as exc:
+            raise AIResponseError("Resposta da Groq não é JSON válido.") from exc
+
         choices = data.get("choices") or []
         if not choices:
             raise AIResponseError("Resposta da Groq sem conteúdo.")
@@ -248,6 +264,15 @@ class LLMService:
         }
 
 
+def _commit_or_rollback() -> None:
+    """Confirma transação ou desfaz em caso de falha (evita sessão travada)."""
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
+
 class ClassPlanService:
     """Regras de negócio para planos de aula."""
 
@@ -261,7 +286,7 @@ class ClassPlanService:
         validated = ClassPlanCreateSchema.model_validate(data)
         plan = ClassPlan.from_payload(validated.model_dump())
         db.session.add(plan)
-        db.session.commit()
+        _commit_or_rollback()
         return plan
 
     def generate_and_save(self, data: dict[str, Any]) -> ClassPlan:
@@ -270,7 +295,7 @@ class ClassPlanService:
         validated = ClassPlanCreateSchema.model_validate(merged)
         plan = ClassPlan.from_payload(validated.model_dump())
         db.session.add(plan)
-        db.session.commit()
+        _commit_or_rollback()
         return plan
 
     def _merge_generation(
@@ -371,9 +396,9 @@ class ClassPlanService:
                 getattr(plan, f"set_{key}")(value)
             elif hasattr(plan, key):
                 setattr(plan, key, value)
-        db.session.commit()
+        _commit_or_rollback()
         return plan
 
     def delete_plan(self, plan: ClassPlan) -> None:
         db.session.delete(plan)
-        db.session.commit()
+        _commit_or_rollback()

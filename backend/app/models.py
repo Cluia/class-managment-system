@@ -1,7 +1,7 @@
 """Modelos do banco de dados."""
 
 import json
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from app import db
@@ -18,7 +18,10 @@ def parse_str_list(value: Any) -> list[str]:
         if not raw:
             return []
         if raw.startswith("["):
-            parsed = json.loads(raw)
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError("JSON de lista inválido.") from exc
             if not isinstance(parsed, list):
                 raise ValueError("JSON deve ser uma lista.")
             return [str(item).strip() for item in parsed if str(item).strip()]

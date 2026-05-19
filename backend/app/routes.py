@@ -2,10 +2,12 @@
 
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import BadRequest
 
 import httpx
 
+from app import db
 from app.security import ai_limit, public_error_message
 from app.services import AIResponseError, ClassPlanService
 from app.validators import (
@@ -56,7 +58,15 @@ def handle_bad_request(exc: BadRequest):
 
 @api_bp.get("/health")
 def health():
-    return jsonify({"status": "healthy"})
+    from sqlalchemy import text
+
+    payload = {"status": "healthy", "database": "connected"}
+    try:
+        db.session.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        db.session.rollback()
+        return jsonify({"status": "degraded", "database": "unavailable"}), 503
+    return jsonify(payload)
 
 
 @api_bp.get("/plans")
@@ -88,7 +98,11 @@ def create_plan():
     if errors:
         return jsonify(errors), 400
 
-    plan = plan_service.create_plan(validated.model_dump())
+    try:
+        plan = plan_service.create_plan(validated.model_dump())
+    except SQLAlchemyError:
+        return jsonify({"error": "Erro ao salvar plano no banco de dados."}), 500
+
     return jsonify(plan.to_dict()), 201
 
 
@@ -110,14 +124,14 @@ def plan_recommendations():
         payload = public_error_message(str(exc))
         payload["error"] = "A IA retornou um formato inválido."
         return jsonify(payload), 502
-    except httpx.HTTPError:
-        return jsonify(
-            {"error": "Não foi possível comunicar com o serviço de IA. Tente novamente."}
-        ), 502
     except httpx.TimeoutException:
         return jsonify(
             {"error": "Tempo esgotado ao aguardar resposta da IA. Tente novamente."}
         ), 504
+    except httpx.HTTPError:
+        return jsonify(
+            {"error": "Não foi possível comunicar com o serviço de IA. Tente novamente."}
+        ), 502
 
     return jsonify(result)
 
@@ -142,14 +156,14 @@ def generate_plan():
         payload = public_error_message(str(exc))
         payload["error"] = "A IA retornou um formato inválido."
         return jsonify(payload), 502
-    except httpx.HTTPError:
-        return jsonify(
-            {"error": "Não foi possível comunicar com o serviço de IA. Tente novamente."}
-        ), 502
     except httpx.TimeoutException:
         return jsonify(
             {"error": "Tempo esgotado ao aguardar resposta da IA. Tente novamente."}
         ), 504
+    except httpx.HTTPError:
+        return jsonify(
+            {"error": "Não foi possível comunicar com o serviço de IA. Tente novamente."}
+        ), 502
 
     return jsonify(plan.to_dict()), 201
 
@@ -170,7 +184,10 @@ def update_plan(plan_id: int):
         return jsonify(errors), 400
 
     payload = validated.model_dump(exclude_unset=True)
-    updated = plan_service.update_plan(plan, payload)
+    try:
+        updated = plan_service.update_plan(plan, payload)
+    except SQLAlchemyError:
+        return jsonify({"error": "Erro ao atualizar plano no banco de dados."}), 500
     return jsonify(updated.to_dict())
 
 
@@ -185,5 +202,8 @@ def delete_plan(plan_id: int):
     if not plan:
         return jsonify({"error": "Plano não encontrado."}), 404
 
-    plan_service.delete_plan(plan)
+    try:
+        plan_service.delete_plan(plan)
+    except SQLAlchemyError:
+        return jsonify({"error": "Erro ao excluir plano no banco de dados."}), 500
     return "", 204

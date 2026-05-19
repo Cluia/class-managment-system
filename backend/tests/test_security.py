@@ -23,4 +23,3 @@ def test_production_rejects_weak_secret_key(monkeypatch):
     monkeypatch.setenv("SECRET_KEY", "change-me-in-production")
     with pytest.raises(RuntimeError):
         Config.validate_production()
-

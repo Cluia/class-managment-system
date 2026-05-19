@@ -27,31 +27,36 @@ _EXTRA_COLUMNS: dict[str, str] = {
 
 def sync_class_plans_schema() -> None:
     """Recria tabela legada ou adiciona colunas ausentes."""
-    inspector = inspect(db.engine)
-    if "class_plans" not in inspector.get_table_names():
-        return
+    try:
+        inspector = inspect(db.engine)
+        if "class_plans" not in inspector.get_table_names():
+            return
 
-    existing = {col["name"] for col in inspector.get_columns("class_plans")}
+        existing = {col["name"] for col in inspector.get_columns("class_plans")}
 
-    if _LEGACY_COLUMNS & existing:
-        logger.warning(
-            "Schema legado em class_plans detectado (%s). Recriando tabela.",
-            ", ".join(sorted(_LEGACY_COLUMNS & existing)),
-        )
-        ClassPlan.__table__.drop(db.engine)
-        db.create_all()
-        return
+        if _LEGACY_COLUMNS & existing:
+            logger.warning(
+                "Schema legado em class_plans detectado (%s). Recriando tabela.",
+                ", ".join(sorted(_LEGACY_COLUMNS & existing)),
+            )
+            ClassPlan.__table__.drop(db.engine)
+            db.create_all()
+            return
 
-    dialect = db.engine.dialect.name
-    for name, ddl in _EXTRA_COLUMNS.items():
-        if name in existing:
-            continue
-        column_ddl = _adapt_column_ddl(ddl, dialect)
-        stmt = text(f"ALTER TABLE class_plans ADD COLUMN {name} {column_ddl}")
-        logger.info("Migrando schema: ADD COLUMN class_plans.%s", name)
-        db.session.execute(stmt)
+        dialect = db.engine.dialect.name
+        for name, ddl in _EXTRA_COLUMNS.items():
+            if name in existing:
+                continue
+            column_ddl = _adapt_column_ddl(ddl, dialect)
+            stmt = text(f"ALTER TABLE class_plans ADD COLUMN {name} {column_ddl}")
+            logger.info("Migrando schema: ADD COLUMN class_plans.%s", name)
+            db.session.execute(stmt)
 
-    db.session.commit()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Falha ao sincronizar schema de class_plans.")
+        raise
 
 
 def _adapt_column_ddl(ddl: str, dialect: str) -> str:

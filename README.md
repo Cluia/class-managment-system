@@ -251,8 +251,10 @@ curl http://localhost:5000/api/health
 Resposta:
 
 ```json
-{"status": "healthy"}
+{"status": "healthy", "database": "connected"}
 ```
+
+Se o banco estiver indisponível, retorna HTTP `503` com `"status": "degraded"`.
 
 ### Exemplo — recomendações de IA
 
