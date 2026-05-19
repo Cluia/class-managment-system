@@ -1,260 +1,244 @@
 # Smart Class Plan
 
-Plataforma para **gerenciamento de planos de aula** com assistente pedagógico baseado em IA. O sistema permite cadastrar, filtrar, ordenar e editar planos, além de sugerir conteúdos complementares, tópicos relacionados e tags a partir do título, da disciplina e da ementa.
+Sistema web para **gerenciamento de planos de aula** com assistente pedagógico baseado em IA. A aplicação oferece CRUD completo de planos, filtros e busca na listagem, e o recurso **Smart Assist**, que sugere conteúdos complementares, tópicos relacionados e tags a partir do título, da disciplina e da ementa informados.
 
-Desenvolvido como solução do **Desafio Técnico — Sistema de Gerenciamento de Planos de Aula** (VLab).
+**Repositório:** https://github.com/Cluia/class-managment-system
+**Vídeo de apresentação:** https://github.com/Cluia/class-managment-system/releases/tag/v1
+
+**Contexto:** solução do Desafio Técnico — Sistema de Gerenciamento de Planos de Aula (VLab).
 
 ---
 
 ## Sumário
 
-- [Funcionalidades](#funcionalidades)
+- [Visão geral da solução](#visão-geral-da-solução)
+- [Atendimento aos requisitos do edital](#atendimento-aos-requisitos-do-edital)
+- [Arquitetura e decisões técnicas](#arquitetura-e-decisões-técnicas)
 - [Stack tecnológica](#stack-tecnológica)
-- [Pré-requisitos](#pré-requisitos)
-- [Como rodar com Docker (recomendado)](#como-rodar-com-docker-recomendado)
-- [Como rodar sem Docker (desenvolvimento local)](#como-rodar-sem-docker-desenvolvimento-local)
-- [Configuração da IA (Groq)](#configuração-da-ia-groq)
+- [Execução com Docker](#execução-com-docker)
+- [Execução local (alternativa)](#execução-local-alternativa)
+- [Integração com IA (Groq)](#integração-com-ia-groq)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Endpoints da API](#endpoints-da-api)
-- [Estrutura do projeto](#estrutura-do-projeto)
-- [Testes e qualidade de código](#testes-e-qualidade-de-código)
-- [Itens bônus implementados](#itens-bônus-implementados)
-- [Entrega do desafio (checklist)](#entrega-do-desafio-checklist)
-- [Solução de problemas](#solução-de-problemas)
+- [API REST](#api-rest)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Testes, lint e CI](#testes-lint-e-ci)
+- [Observabilidade e DevOps](#observabilidade-e-devops)
+- [Segurança](#segurança)
+- [Referência de troubleshooting](#referência-de-troubleshooting)
 
 ---
 
-## Funcionalidades
+## Visão geral da solução
 
-### CRUD de planos de aula
+A solução é composta por três serviços orquestrados via Docker Compose:
 
-- Listagem com **paginação**
-- **Cadastro**, **edição** e **exclusão**
-- Campos: título, objetivo, ementa/resumo, data prevista, disciplina, conteúdos, recursos de apoio e tags
+| Serviço   | Função |
+|-----------|--------|
+| `frontend` | SPA estática (HTML/CSS/JS) servida por Nginx, com proxy reverso para a API |
+| `backend`  | API REST em Flask, validação Pydantic, integração Groq |
+| `db`       | PostgreSQL 16 para persistência em ambiente containerizado |
 
-### Smart Assist (IA)
+O fluxo do Smart Assist: o formulário envia título, disciplina e ementa → o backend monta um prompt de “Assistente Pedagógico” → a Groq responde em JSON → o frontend preenche conteúdos, recursos e tags automaticamente.
 
-- Botão **“Gerar Recomendações com IA”** no formulário
-- O frontend envia título, disciplina e ementa; o backend consulta a **Groq** e retorna:
-  - conteúdos complementares
-  - tópicos relacionados
-  - 3 tags sugeridas
-- Estados de **carregamento** e **erro** tratados na interface
-- Fallback para sugestões de demonstração quando a API falha (configurável)
+---
 
-### Organização e consulta
+## Atendimento aos requisitos do edital
 
-- Filtros por **disciplina**, **tags** e **data prevista**
-- Busca por **título**
-- Ordenação por **título** ou **data de cadastro** (crescente/decrescente)
+### Requisitos funcionais
+
+| Requisito | Status | Observação |
+|-----------|--------|------------|
+| CRUD de planos de aula | Atendido | Todos os campos exigidos; paginação na listagem |
+| Smart Assist (IA) | Atendido | `POST /api/plans/recommendations`; preenchimento automático no formulário |
+| Filtros (disciplina, tags, data) | Atendido | Query params em `GET /api/plans` |
+| Busca por título | Atendido | Parâmetro `search` |
+| Ordenação | Atendido | Por título ou data de cadastro (`sort_by`, `sort_order`) |
+| Loading e tratamento de erro (IA) | Atendido | Spinner, toast e mensagens de alerta no frontend |
+
+### Requisitos técnicos
+
+| Requisito | Status | Observação |
+|-----------|--------|------------|
+| Backend Flask + validação | Atendido | Pydantic nos schemas de entrada |
+| Banco relacional | Atendido | PostgreSQL (Docker); SQLite em dev local |
+| Integração LLM via variável de ambiente | Atendido | `GROQ_API_KEY`; prompt com resposta JSON |
+| SPA frontend | Atendido | Sem framework JS; módulos ES6 |
+| Docker + um comando | Atendido | `docker compose up --build` |
+
+### Itens diferenciais (bônus)
+
+| Item | Status | Observação |
+|------|--------|------------|
+| CI (GitHub Actions) | Atendido | flake8, black, pytest em `.github/workflows/linter.yml` |
+| Logs estruturados (IA) | Atendido | Ex.: `AI Request: Title="...", Discipline="...", Token Usage=..., Latency=...s` |
+| Health check | Atendido | `GET /api/health` (inclui verificação do banco) |
+| Containerização | Atendido | Dockerfiles + `docker-compose.yml` |
+
+### Entrega documental
+
+| Item do edital | Situação |
+|----------------|----------|
+| Repositório Git público | Disponível no link acima |
+| README detalhado | Este documento |
+| Vídeo de apresentação (até 5 min) | Entregue separadamente conforme orientação do edital |
+| Segredos fora do versionamento | Chaves em `backend/.env` (listado no `.gitignore`); apenas `.env.example` versionado |
+
+---
+
+## Arquitetura e decisões técnicas
+
+**Backend em camadas:** rotas (`routes.py`) → serviços (`services.py`) → modelos SQLAlchemy (`models.py`), com validação centralizada em `validators.py`.
+
+**IA via Groq:** API compatível com OpenAI Chat Completions, modelo padrão `llama-3.1-8b-instant` (rápido e adequado ao volume do desafio). Respostas forçadas em JSON (`response_format: json_object`).
+
+**Fallback configurável:** `AI_FALLBACK_TO_MOCK` permite servir sugestões de demonstração quando a API externa falha (útil em ambiente de avaliação sem chave ou sob rate limit).
+
+**Proxy no frontend:** Nginx encaminha `/api/*` ao backend, evitando CORS e permitindo uso de caminhos relativos na SPA.
+
+**Migração leve de schema:** `db_schema.py` detecta tabelas legadas incompatíveis e recria ou adiciona colunas ausentes na inicialização — relevante quando o volume PostgreSQL persiste entre versões do modelo.
 
 ---
 
 ## Stack tecnológica
 
-| Camada    | Tecnologia                                      |
-|-----------|--------------------------------------------------|
-| Backend   | Python 3.12, Flask, SQLAlchemy, Pydantic, httpx |
-| Banco     | PostgreSQL (Docker) / SQLite (dev local)        |
-| IA        | [Groq](https://groq.com) (`llama-3.1-8b-instant`) |
-| Frontend  | HTML, CSS e JavaScript (SPA)                    |
-| Proxy     | Nginx (container frontend)                      |
-| DevOps    | Docker, Docker Compose, GitHub Actions          |
+| Camada | Tecnologias |
+|--------|-------------|
+| Backend | Python 3.12, Flask, SQLAlchemy, Pydantic, httpx, flask-limiter, flask-cors |
+| Banco | PostgreSQL 16 (Docker), SQLite (desenvolvimento local) |
+| IA | Groq — `llama-3.1-8b-instant` |
+| Frontend | HTML5, CSS3, JavaScript (ES modules) |
+| Infra | Docker, Docker Compose, Nginx, GitHub Actions |
 
 ---
 
-## Pré-requisitos
+## Execução com Docker
 
-Escolha **uma** das formas de execução:
+### Pré-requisitos
 
-### Opção A — Docker (mais simples)
+- Docker Engine e Docker Compose v2
+- Arquivo `backend/.env` configurado (ver seção [Integração com IA](#integração-com-ia-groq))
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) ou Docker Engine + Compose (Linux)
-- Conta e chave de API na [Groq Console](https://console.groq.com/keys) (para o Smart Assist)
-
-### Opção B — Desenvolvimento local
-
-- Python 3.12+
-- `pip`
-- Navegador moderno
-- Chave Groq (opcional; sem chave, a IA usa modo demonstração)
-
----
-
-## Como rodar com Docker (recomendado)
-
-### 1. Clone o repositório
+### Procedimento
 
 ```bash
-git clone <URL_DO_SEU_REPOSITORIO>
-cd smart-class-plan
-```
-
-### 2. Configure o ambiente
-
-Copie o exemplo e preencha sua chave Groq:
-
-```bash
+git clone https://github.com/Cluia/class-managment-system.git
+cd class-managment-system
 cp backend/.env.example backend/.env
-```
-
-Edite `backend/.env` e defina pelo menos:
-
-```env
-GROQ_API_KEY=sua_chave_aqui
-GROQ_MODEL=llama-3.1-8b-instant
-AI_FALLBACK_TO_MOCK=false
-```
-
-> **Importante:** nunca commite o arquivo `.env`. Ele já está listado no `.gitignore`.
-
-### 3. Suba toda a aplicação com um comando
-
-Na raiz do projeto:
-
-```bash
+# Inserir GROQ_API_KEY em backend/.env
 docker compose up --build
 ```
 
-Aguarde os três serviços ficarem ativos: `db`, `backend` e `frontend`.
+### Endpoints de acesso
 
-### 4. Acesse no navegador
+| Recurso | URL |
+|---------|-----|
+| Interface web | http://localhost:8080 |
+| API REST | http://localhost:5000/api |
+| Health check | http://localhost:5000/api/health |
 
-| Serviço   | URL |
-|-----------|-----|
-| **Aplicação (frontend)** | http://localhost:8080 |
-| **API (backend)**        | http://localhost:5000/api |
-| **Health check**         | http://localhost:5000/api/health |
-
-### 5. Parar os containers
+### Encerramento
 
 ```bash
-docker compose down
-```
-
-Para remover também o volume do banco (dados apagados):
-
-```bash
-docker compose down -v
+docker compose down          # mantém dados do Postgres
+docker compose down -v       # remove volume do banco
 ```
 
 ---
 
-## Como rodar sem Docker (desenvolvimento local)
+## Execução local (alternativa)
 
 ### Backend
 
 ```bash
 cd backend
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# Linux/macOS
-source venv/bin/activate
-
+source venv/bin/activate          # Linux/macOS
+# venv\Scripts\activate           # Windows
 pip install -r requirements.txt
 cp .env.example .env
-# Edite .env: GROQ_API_KEY e DATABASE_URL=sqlite:///smart_class_plan.db
-
+# Editar .env: GROQ_API_KEY e manter DATABASE_URL=sqlite:///smart_class_plan.db
 python run.py
 ```
 
-A API ficará em http://localhost:5000/api/health.
+API disponível em http://localhost:5000/api/health.
 
 ### Frontend
 
-O frontend usa caminhos relativos (`/api/...`) e depende do **proxy do Nginx** no Docker. Para testar localmente sem Docker:
-
-1. Sirva a pasta `frontend` com um servidor estático (ex.: extensão Live Server no VS Code), **ou**
-2. Prefira usar `docker compose up` apenas para o frontend e backend.
-
-Para desenvolvimento ágil, use **Docker Compose** na raiz.
+A SPA depende do proxy Nginx para rotear `/api` ao backend. Para avaliação completa da interface, recomenda-se a execução via Docker Compose. Execução isolada do `index.html` (protocolo `file://`) não atende ao fluxo integrado.
 
 ---
 
-## Configuração da IA (Groq)
+## Integração com IA (Groq)
 
-1. Crie uma conta em https://console.groq.com
-2. Gere uma API Key em **API Keys**
-3. Cole em `backend/.env`:
+1. Obter chave em https://console.groq.com/keys  
+2. Configurar `backend/.env`:
 
 ```env
-GROQ_API_KEY=gsk_xxxxxxxx
+GROQ_API_KEY=<chave>
 GROQ_MODEL=llama-3.1-8b-instant
 GROQ_API_BASE=https://api.groq.com/openai/v1
+AI_FALLBACK_TO_MOCK=false
 ```
 
-### Modelos sugeridos
+### Modelos compatíveis
 
-| Modelo | Uso |
-|--------|-----|
-| `llama-3.1-8b-instant` | Rápido, ideal para desenvolvimento e demo (**padrão**) |
-| `llama-3.3-70b-versatile` | Melhor qualidade nas sugestões, um pouco mais lento |
+| Modelo | Perfil |
+|--------|--------|
+| `llama-3.1-8b-instant` | Padrão do projeto; baixa latência |
+| `llama-3.3-70b-versatile` | Alternativa com maior qualidade textual |
 
-Lista atualizada: https://console.groq.com/docs/models
+Documentação oficial: https://console.groq.com/docs/models
 
-### Fallback (modo demonstração)
-
-Se a Groq estiver indisponível ou sem chave:
-
-```env
-AI_FALLBACK_TO_MOCK=true
-```
-
-O sistema preenche o formulário com sugestões fixas e informa na interface. Em produção, recomenda-se `AI_FALLBACK_TO_MOCK=false` para expor erros reais da API.
+Com `AI_FALLBACK_TO_MOCK=true`, falhas da API externa são substituídas por sugestões fixas, sinalizadas na interface (`fallback_mock: true` na resposta JSON).
 
 ---
 
 ## Variáveis de ambiente
 
-Arquivo de referência: `backend/.env.example`
+Referência: `backend/.env.example`
 
 | Variável | Descrição |
 |----------|-----------|
-| `FLASK_ENV` | `development` ou `production` |
-| `SECRET_KEY` | Chave secreta do Flask (obrigatória em produção) |
-| `DATABASE_URL` | URL do banco (Postgres no Docker; SQLite local) |
-| `GROQ_API_KEY` | Chave da API Groq |
-| `GROQ_MODEL` | Modelo Groq (ex.: `llama-3.1-8b-instant`) |
-| `GROQ_API_BASE` | Base da API (padrão: `https://api.groq.com/openai/v1`) |
-| `AI_FALLBACK_TO_MOCK` | `true` = usa mock se a IA falhar |
-| `CORS_ORIGINS` | Origens permitidas (ex.: `http://localhost:8080`) |
-| `RATELIMIT_AI` | Limite de requisições à IA (ex.: `10 per minute`) |
-
-No Docker, `DATABASE_URL` do Postgres é sobrescrita pelo `docker-compose.yml` para apontar ao serviço `db`.
+| `FLASK_ENV` | Ambiente Flask (`development` / `production`) |
+| `SECRET_KEY` | Chave secreta da aplicação |
+| `DATABASE_URL` | URI do banco (sobrescrita para Postgres no Compose) |
+| `GROQ_API_KEY` | Credencial da API Groq |
+| `GROQ_MODEL` | Identificador do modelo |
+| `GROQ_API_BASE` | URL base da API (padrão: `https://api.groq.com/openai/v1`) |
+| `AI_FALLBACK_TO_MOCK` | Habilita respostas mock em falha da IA |
+| `CORS_ORIGINS` | Origens permitidas pelo CORS |
+| `RATELIMIT_AI` | Rate limit do endpoint de IA (ex.: `10 per minute`) |
 
 ---
 
-## Endpoints da API
+## API REST
 
-Prefixo base: `/api`
+Prefixo: `/api`
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/health` | Health check |
-| `GET` | `/plans` | Lista planos (filtros, busca, ordenação, paginação) |
+| `GET` | `/health` | Status da aplicação e conectividade com o banco |
+| `GET` | `/plans` | Listagem paginada com filtros e ordenação |
 | `GET` | `/plans/:id` | Detalhe de um plano |
-| `POST` | `/plans` | Cria plano |
-| `PUT` / `PATCH` | `/plans/:id` | Atualiza plano |
-| `DELETE` | `/plans/:id` | Remove plano |
-| `POST` | `/plans/recommendations` | Smart Assist — recomendações de IA |
-| `POST` | `/plans/generate` | Gera e salva plano via IA |
+| `POST` | `/plans` | Criação |
+| `PUT` / `PATCH` | `/plans/:id` | Atualização |
+| `DELETE` | `/plans/:id` | Exclusão |
+| `POST` | `/plans/recommendations` | Recomendações Smart Assist |
+| `POST` | `/plans/generate` | Geração e persistência de plano via IA |
 
-### Exemplo — health check
+### Health check
 
 ```bash
 curl http://localhost:5000/api/health
 ```
 
-Resposta:
+Resposta esperada (HTTP 200):
 
 ```json
 {"status": "healthy", "database": "connected"}
 ```
 
-Se o banco estiver indisponível, retorna HTTP `503` com `"status": "degraded"`.
+Se o banco estiver indisponível: HTTP `503`, `"status": "degraded"`.
 
 ### Exemplo — recomendações de IA
 
@@ -268,12 +252,12 @@ curl -X POST http://localhost:5000/api/plans/recommendations \
   }'
 ```
 
-### Query params da listagem (`GET /plans`)
+### Parâmetros de listagem (`GET /plans`)
 
-| Parâmetro | Descrição |
-|-----------|-----------|
+| Parâmetro | Função |
+|-----------|--------|
 | `page`, `per_page` | Paginação |
-| `subject` | Filtro por disciplina |
+| `subject` | Filtro por disciplina (parcial) |
 | `tags` | Filtro por tags |
 | `scheduled_date` | Filtro por data prevista (`YYYY-MM-DD`) |
 | `search` | Busca no título |
@@ -282,21 +266,21 @@ curl -X POST http://localhost:5000/api/plans/recommendations \
 
 ---
 
-## Estrutura do projeto
+## Estrutura do repositório
 
 ```
 smart-class-plan/
 ├── backend/
 │   ├── app/
-│   │   ├── __init__.py      # Factory Flask
-│   │   ├── config.py        # Configurações
-│   │   ├── routes.py        # Endpoints REST
-│   │   ├── services.py      # Regras de negócio + Groq
-│   │   ├── models.py        # Modelo ClassPlan
-│   │   ├── validators.py    # Schemas Pydantic
-│   │   ├── security.py      # CORS, rate limit, headers
+│   │   ├── __init__.py       # Application factory
+│   │   ├── config.py
+│   │   ├── routes.py
+│   │   ├── services.py       # Regras de negócio e cliente Groq
+│   │   ├── models.py
+│   │   ├── validators.py
+│   │   ├── security.py
 │   │   ├── logging_config.py
-│   │   └── db_schema.py       # Migração leve de schema
+│   │   └── db_schema.py
 │   ├── tests/
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -316,23 +300,19 @@ smart-class-plan/
 
 ---
 
-## Testes e qualidade de código
+## Testes, lint e CI
 
-### Executar testes (backend)
+### Testes automatizados
 
 ```bash
 cd backend
 pip install -r requirements.txt
-pytest
-```
-
-Com cobertura:
-
-```bash
 pytest --cov=app --cov-report=term-missing
 ```
 
-### Linter e formatação
+Cobertura atual: 26 testes (rotas, validadores, segurança, recomendações, modelos, resiliência Groq).
+
+### Análise estática
 
 ```bash
 cd backend
@@ -340,87 +320,49 @@ flake8 app/ tests/ --max-line-length=100 --extend-ignore=E501
 black --check app/ tests/
 ```
 
-O pipeline **GitHub Actions** (`.github/workflows/linter.yml`) executa flake8, black e pytest a cada push/PR nas branches `main` e `develop`.
+### Pipeline CI
+
+O workflow `.github/workflows/linter.yml` executa, em push/PR para `main` e `develop`:
+
+- `lint-backend` — flake8 e black  
+- `test-backend` — pytest com cobertura  
+- `lint-frontend` — verificação de estrutura do frontend  
 
 ---
 
-## Itens bônus implementados
+## Observabilidade e DevOps
 
-Conforme o documento do desafio (seção DevOps & Observabilidade):
-
-| Item | Implementação |
-|------|----------------|
-| **CI (GitHub Actions)** | Workflow com flake8, black e pytest |
-| **Logs estruturados** | Logs de requisições à IA, ex.: `AI Request: Title="...", Discipline="...", Token Usage=..., Latency=...s` |
-| **Health check** | `GET /api/health` |
-| **Containerização** | `Dockerfile` no backend e frontend + `docker-compose.yml` |
-| **Subida com um comando** | `docker compose up --build` |
+- **Logs:** formato `[LEVEL] mensagem`; requisições à IA registram título, disciplina, tokens e latência.  
+- **Health check:** `GET /api/health` com probe SQL (`SELECT 1`).  
+- **Containers:** imagens slim para backend (Python) e frontend (Nginx Alpine).  
+- **Orquestração:** `depends_on` com healthcheck do Postgres antes do backend.
 
 ---
 
-## Entrega do desafio (checklist)
+## Segurança
 
-O edital solicita:
-
-- [ ] **Repositório Git público** — publique este projeto no GitHub/GitLab e atualize a URL no README
-- [x] **README detalhado** — este documento
-- [ ] **Vídeo (até 5 min)** — grave apresentando:
-  - principais escolhas técnicas (Flask, Groq, Docker)
-  - organização do projeto
-  - demonstração do CRUD, filtros e Smart Assist
-  - itens bônus (CI, logs, health check, Docker)
-  - dificuldades encontradas (ex.: migração de schema do banco, cota de API)
-- [ ] **`.env` fora do Git** — confirme que a chave Groq não foi commitada
-
-### Sugestão de roteiro para o vídeo
-
-1. `docker compose up --build` e abertura em http://localhost:8080  
-2. Cadastro de um plano manualmente  
-3. Uso do botão **Gerar Recomendações com IA**  
-4. Filtros e busca na listagem  
-5. `curl` no `/api/health` e trecho dos logs no terminal  
-6. Menção ao workflow no GitHub Actions  
+- Chaves de API e `SECRET_KEY` exclusivamente via variáveis de ambiente (`backend/.env`).  
+- `.env` incluído no `.gitignore`; repositório versiona apenas `.env.example`.  
+- Headers HTTP de segurança (X-Content-Type-Options, X-Frame-Options, etc.).  
+- Rate limiting nos endpoints de IA (`RATELIMIT_AI`).  
+- Detalhes internos de erro ocultados em produção (`public_error_message`).  
+- Validação de entrada com Pydantic (`extra="forbid"` nos schemas).
 
 ---
 
-## Solução de problemas
+## Referência de troubleshooting
 
-### Backend não sobe / erro de banco
+| Sintoma | Causa provável | Ação |
+|---------|----------------|------|
+| Backend não inicia | Postgres indisponível ou schema legado | `docker compose up --build`; ou `docker compose down -v` |
+| Erro 500 ao salvar plano | Incompatibilidade de schema | Reiniciar backend (migração automática em `db_schema.py`) |
+| IA em modo demonstração | Chave ausente, rate limit ou `AI_FALLBACK_TO_MOCK=true` | Verificar `GROQ_API_KEY`; reiniciar backend |
+| Frontend sem dados da API | Acesso via `file://` em vez do Nginx | Usar http://localhost:8080 |
+| Health check 404 | Rota incorreta | Utilizar `/api/health` |
+| Porta ocupada | Conflito local | Ajustar mapeamento em `docker-compose.yml` (5000, 5432, 8080) |
 
-- Com Docker, use `docker compose up --build` (sobe `db` + `backend`).
-- Se aparecer erro de coluna inexistente, reinicie o backend (há migração automática de schema legado) ou resete o volume: `docker compose down -v`.
+Logs do backend:
 
-### “Erro interno do servidor” ao salvar
-
-- Verifique os logs: `docker compose logs backend`
-- Confirme que o Postgres está saudável: `docker compose ps`
-
-### IA retorna modo demonstração
-
-- Verifique `GROQ_API_KEY` em `backend/.env`
-- Reinicie: `docker compose restart backend`
-- Teste com `AI_FALLBACK_TO_MOCK=false` para ver erros reais da API
-
-### Frontend não carrega a API
-
-- Acesse **http://localhost:8080** (Nginx faz proxy de `/api` para o backend).
-- Não abra `index.html` direto pelo explorador de arquivos (`file://`).
-
-### Porta em uso
-
-- Backend: `5000` — Postgres: `5432` — Frontend: `8080`
-- Altere o mapeamento em `docker-compose.yml` se necessário.
-
-### Health check retorna 404
-
-- Use **`/api/health`**, não `/health`.
-
----
-
-## Licença e autoria
-
-Projeto acadêmico / desafio técnico. Ajuste a licença e os créditos conforme a orientação do laboratório.
-
----
-
-**Smart Class Plan** — planejamento de aulas com apoio de IA pedagógica.
+```bash
+docker compose logs backend
+```
