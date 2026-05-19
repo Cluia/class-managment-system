@@ -2,8 +2,8 @@
 
 Sistema web para **gerenciamento de planos de aula** com assistente pedagógico baseado em IA. A aplicação oferece CRUD completo de planos, filtros e busca na listagem, e o recurso **Smart Assist**, que sugere conteúdos complementares, tópicos relacionados e tags a partir do título, da disciplina e da ementa informados.
 
-**Repositório:** https://github.com/Cluia/class-managment-system
-**Vídeo de apresentação:** https://github.com/Cluia/class-managment-system/releases/tag/v1
+**Repositório:** https://github.com/Cluia/class-managment-system  
+**Vídeo de apresentação:** https://github.com/Cluia/class-managment-<br>system/releases/tag/v1
 
 **Contexto:** solução do Desafio Técnico — Sistema de Gerenciamento de Planos de Aula (VLab).
 
